@@ -46,47 +46,54 @@ class ExternalCardReaderView extends StatelessWidget {
     return Obx(() {
       final selectedDevice = service.selectedReader.value;
       
-      return Row(
+      return Stack(
         children: [
-          // 左列：设备基础信息 (30%)
-          Expanded(
-            flex: 30,
-            child: Container(
-              padding: EdgeInsets.all(24.w),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
-                border: Border(
-                  right: BorderSide(color: const Color(0xFFE0E0E0), width: 1.w),
+          Row(
+            children: [
+              // 左列：设备基础信息 (30%)
+              Expanded(
+                flex: 30,
+                child: Container(
+                  padding: EdgeInsets.all(24.w),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAFA),
+                    border: Border(
+                      right: BorderSide(color: const Color(0xFFE0E0E0), width: 1.w),
+                    ),
+                  ),
+                  child: _buildDeviceBasicInfo(service, selectedDevice),
                 ),
               ),
-              child: _buildDeviceBasicInfo(service, selectedDevice),
-            ),
-          ),
-          
-          // 中列：读卡器配置 (35%)
-          Expanded(
-            flex: 35,
-            child: Container(
-              padding: EdgeInsets.all(32.w),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                border: Border(
-                  right: BorderSide(color: const Color(0xFFE0E0E0), width: 1.w),
+              
+              // 中列：读卡器配置 (35%)
+              Expanded(
+                flex: 35,
+                child: Container(
+                  padding: EdgeInsets.all(32.w),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    border: Border(
+                      right: BorderSide(color: const Color(0xFFE0E0E0), width: 1.w),
+                    ),
+                  ),
+                  child: _buildCardReaderConfig(service, cardReadStatus),
                 ),
               ),
-              child: _buildCardReaderConfig(service, cardReadStatus),
-            ),
+              
+              // 右列：扫描按钮+卡片数据 (35%)
+              Expanded(
+                flex: 35,
+                child: Container(
+                  padding: EdgeInsets.all(32.w),
+                  color: Colors.white,
+                  child: _buildCardDataSection(service, cardReadStatus),
+                ),
+              ),
+            ],
           ),
           
-          // 右列：扫描按钮+卡片数据 (35%)
-          Expanded(
-            flex: 35,
-            child: Container(
-              padding: EdgeInsets.all(32.w),
-              color: Colors.white,
-              child: _buildCardDataSection(service, cardReadStatus),
-            ),
-          ),
+          // 调试日志面板（浮动在右下角）
+          _buildDebugLogPanel(service),
         ],
       );
     });
@@ -392,6 +399,7 @@ class ExternalCardReaderView extends StatelessWidget {
     String text;
     Color color;
     IconData? icon;
+    String? hint;
 
     switch (cardReadStatus) {
       case 'waiting':
@@ -399,6 +407,7 @@ class ExternalCardReaderView extends StatelessWidget {
         text = '请将 M1 卡片靠近外置读卡器...';
         color = const Color(0xFF1890FF);
         icon = Icons.contactless;
+        hint = '确保卡片完全放置在读卡器感应区域';
         break;
       case 'success':
         text = '✓ 读取成功';
@@ -409,6 +418,16 @@ class ExternalCardReaderView extends StatelessWidget {
         text = service.lastError.value ?? '读取失败，请重试';
         color = const Color(0xFFE74C3C);
         icon = Icons.error;
+        // 根据错误类型给出不同的提示
+        if (service.lastError.value?.contains('权限') == true) {
+          hint = '💡 请在系统弹窗中允许USB访问';
+        } else if (service.lastError.value?.contains('未检测') == true) {
+          hint = '💡 1) 确保卡片已放置 2) 尝试调整卡片位置';
+        } else if (service.lastError.value?.contains('UID') == true) {
+          hint = '💡 1) 重新放置卡片 2) 检查卡片是否为M1卡';
+        } else {
+          hint = '💡 查看下方调试日志了解详细信息';
+        }
         break;
       default:
         text = '准备读卡...';
@@ -425,6 +444,26 @@ class ExternalCardReaderView extends StatelessWidget {
           style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600, color: color),
           textAlign: TextAlign.center,
         ),
+        if (hint != null) ...[
+          SizedBox(height: 12.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+            ),
+            child: Text(
+              hint,
+              style: TextStyle(
+                fontSize: 13.sp,
+                color: color,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -600,5 +639,136 @@ class ExternalCardReaderView extends StatelessWidget {
     } catch (e) {
       return timestamp.toString();
     }
+  }
+
+  /// 构建调试日志面板
+  Widget _buildDebugLogPanel(ExternalCardReaderService service) {
+    return Positioned(
+      right: 16.w,
+      bottom: 16.h,
+      child: Obx(() {
+        final logs = service.debugLogs;
+        final isExpanded = service.debugLogExpanded.value;
+        
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: isExpanded ? 450.w : 200.w,
+          height: isExpanded ? 400.h : 50.h,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(12.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // 标题栏
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2D2D2D),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12.r)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.terminal,
+                      size: 18.sp,
+                      color: const Color(0xFF4CAF50),
+                    ),
+                    SizedBox(width: 8.w),
+                    Text(
+                      '调试日志',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (isExpanded) ..[
+                      // 清空按钮
+                      InkWell(
+                        onTap: () => service.clearLogs(),
+                        child: Icon(
+                          Icons.delete_outline,
+                          size: 18.sp,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                    ],
+                    // 展开/收起按钮
+                    InkWell(
+                      onTap: () => service.debugLogExpanded.value = !isExpanded,
+                      child: Icon(
+                        isExpanded ? Icons.expand_more : Icons.expand_less,
+                        size: 20.sp,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // 日志内容
+              if (isExpanded)
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.all(12.w),
+                    child: logs.isEmpty
+                        ? Center(
+                            child: Text(
+                              '暂无日志',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            reverse: true,
+                            itemCount: logs.length,
+                            itemBuilder: (context, index) {
+                              final log = logs[index];
+                              final isError = log.contains('✗') || log.contains('错误') || log.contains('失败');
+                              final isSuccess = log.contains('✓') || log.contains('成功');
+                              final isWarning = log.contains('⚠') || log.contains('警告');
+                              
+                              Color textColor = Colors.white70;
+                              if (isError) {
+                                textColor = const Color(0xFFFF5252);
+                              } else if (isSuccess) {
+                                textColor = const Color(0xFF4CAF50);
+                              } else if (isWarning) {
+                                textColor = const Color(0xFFFFA726);
+                              }
+                              
+                              return Padding(
+                                padding: EdgeInsets.only(bottom: 4.h),
+                                child: Text(
+                                  log,
+                                  style: TextStyle(
+                                    fontSize: 11.sp,
+                                    color: textColor,
+                                    fontFamily: 'monospace',
+                                    height: 1.4,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
   }
 }

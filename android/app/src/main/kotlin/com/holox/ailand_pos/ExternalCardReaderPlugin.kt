@@ -207,15 +207,42 @@ class ExternalCardReaderPlugin : FlutterPlugin, MethodCallHandler {
     private fun scanUsbReaders(result: Result) {
         try {
             val deviceList = usbManager?.deviceList ?: emptyMap()
-            Log.d(TAG, "Scanning USB devices, found: ${deviceList.size}")
+            Log.d(TAG, "========== 开始扫描USB设备 ==========")
+            Log.d(TAG, "检测到 ${deviceList.size} 个USB设备")
+            
+            // 打印所有USB设备信息（便于调试）
+            deviceList.values.forEachIndexed { index, device ->
+                Log.d(TAG, "设备 ${index + 1}:")
+                Log.d(TAG, "  名称: ${device.deviceName}")
+                Log.d(TAG, "  厂商ID: 0x${device.vendorId.toString(16)}")
+                Log.d(TAG, "  产品ID: 0x${device.productId.toString(16)}")
+                Log.d(TAG, "  设备类: ${device.deviceClass}")
+                Log.d(TAG, "  接口数: ${device.interfaceCount}")
+                Log.d(TAG, "  权限状态: ${usbManager?.hasPermission(device)}")
+            }
 
             val cardReaders = deviceList.values
-                .filter { isCardReaderDevice(it) }
+                .filter { device ->
+                    val isReader = isCardReaderDevice(device)
+                    if (isReader) {
+                        Log.d(TAG, "✓ 识别为读卡器: ${device.deviceName}")
+                    }
+                    isReader
+                }
                 .map { device ->
                     val deviceInfo = getDeviceInfo(device)
+                    val hasPermission = usbManager?.hasPermission(device) == true
                     
                     // 构建友好的设备名称（使用型号，而不是USB路径）
                     val friendlyName = deviceInfo["model"] ?: "Smart Card Reader"
+                    
+                    Log.d(TAG, "读卡器详细信息:")
+                    Log.d(TAG, "  设备ID: ${device.deviceId}")
+                    Log.d(TAG, "  型号: $friendlyName")
+                    Log.d(TAG, "  制造商: ${deviceInfo["manufacturer"]}")
+                    Log.d(TAG, "  规格: ${deviceInfo["specifications"]}")
+                    Log.d(TAG, "  USB标识: 0x${device.vendorId.toString(16)}:0x${device.productId.toString(16)}")
+                    Log.d(TAG, "  权限状态: $hasPermission")
                     
                     hashMapOf(
                         "deviceId" to device.deviceId.toString(),
@@ -226,13 +253,13 @@ class ExternalCardReaderPlugin : FlutterPlugin, MethodCallHandler {
                         "specifications" to deviceInfo["specifications"],
                         "vendorId" to device.vendorId,
                         "productId" to device.productId,
-                        "isConnected" to (usbManager?.hasPermission(device) == true),
+                        "isConnected" to hasPermission,
                         "serialNumber" to device.serialNumber,
                         "usbPath" to device.deviceName  // 保留原始USB路径用于调试
                     )
                 }
 
-            Log.d(TAG, "Found ${cardReaders.size} card reader devices")
+            Log.d(TAG, "========== 扫描完成，找到 ${cardReaders.size} 个读卡器 ==========")
             result.success(cardReaders)
         } catch (e: Exception) {
             Log.e(TAG, "Error scanning USB devices: ${e.message}", e)
@@ -719,28 +746,50 @@ class ExternalCardReaderPlugin : FlutterPlugin, MethodCallHandler {
     private fun performCardRead(device: UsbDevice): Map<String, Any>? {
         var connection: UsbDeviceConnection? = null
         try {
+            Log.d(TAG, "========== 开始读卡操作 ==========")
+            Log.d(TAG, "目标设备: ${device.deviceName}")
+            Log.d(TAG, "设备ID: ${device.deviceId}")
+            
             connection = usbManager?.openDevice(device)
             if (connection == null) {
-                Log.e(TAG, "Failed to open device connection")
+                Log.e(TAG, "✗ 无法打开设备连接")
+                Log.e(TAG, "可能原因: 1) 设备未授权 2) 设备被其他程序占用 3) 驱动问题")
                 return null
             }
+            Log.d(TAG, "✓ 设备连接已打开")
 
             currentConnection = connection
 
             // 查找CCID接口
+            Log.d(TAG, "正在查找CCID接口...")
             val ccidInterface = findCCIDInterface(device)
             if (ccidInterface == null) {
-                Log.e(TAG, "No CCID interface found")
+                Log.e(TAG, "✗ 未找到CCID接口")
+                Log.e(TAG, "设备接口数: ${device.interfaceCount}")
+                for (i in 0 until device.interfaceCount) {
+                    val iface = device.getInterface(i)
+                    Log.e(TAG, "  接口 $i: class=${iface.interfaceClass}, subclass=${iface.interfaceSubclass}")
+                }
                 return null
             }
+            Log.d(TAG, "✓ 找到CCID接口: class=${ccidInterface.interfaceClass}")
 
-            connection.claimInterface(ccidInterface, true)
+            val claimed = connection.claimInterface(ccidInterface, true)
+            if (!claimed) {
+                Log.e(TAG, "✗ 无法声明接口（可能被其他程序占用）")
+                return null
+            }
+            Log.d(TAG, "✓ 接口声明成功")
 
             // 查找端点
+            Log.d(TAG, "正在查找通信端点...")
             var inEndpoint: UsbEndpoint? = null
             var outEndpoint: UsbEndpoint? = null
             for (i in 0 until ccidInterface.endpointCount) {
                 val endpoint = ccidInterface.getEndpoint(i)
+                Log.d(TAG, "  端点 $i: address=0x${endpoint.address.toString(16)}, " +
+                          "direction=${if (endpoint.direction == android.hardware.usb.UsbConstants.USB_DIR_IN) "IN" else "OUT"}, " +
+                          "type=${endpoint.type}")
                 if (endpoint.direction == android.hardware.usb.UsbConstants.USB_DIR_IN) {
                     inEndpoint = endpoint
                 } else {
@@ -749,58 +798,86 @@ class ExternalCardReaderPlugin : FlutterPlugin, MethodCallHandler {
             }
 
             if (inEndpoint == null || outEndpoint == null) {
-                Log.e(TAG, "Missing required endpoints")
+                Log.e(TAG, "✗ 缺少必需的端点 (IN: ${inEndpoint != null}, OUT: ${outEndpoint != null})")
                 return null
             }
+            Log.d(TAG, "✓ 端点配置完成")
+            Log.d(TAG, "  IN端点: 0x${inEndpoint.address.toString(16)}")
+            Log.d(TAG, "  OUT端点: 0x${outEndpoint.address.toString(16)}")
 
             // 1. 发送IccPowerOn命令激活卡片
+            Log.d(TAG, "========== 步骤1: 激活卡片 ==========")
             val powerOnCommand = buildIccPowerOnCommand()
+            Log.d(TAG, "发送 IccPowerOn 命令...")
             val powerOnResponse = sendCommand(connection, outEndpoint, inEndpoint, powerOnCommand)
             
-            if (powerOnResponse == null || !isSuccessResponse(powerOnResponse)) {
-                Log.e(TAG, "Failed to power on card")
+            if (powerOnResponse == null) {
+                Log.e(TAG, "✗ 未收到 PowerOn 响应（可能无卡片或通信超时）")
                 return null
             }
+            
+            if (!isSuccessResponse(powerOnResponse)) {
+                Log.e(TAG, "✗ PowerOn 命令失败")
+                Log.e(TAG, "响应状态码: 0x${powerOnResponse[7].toString(16)}")
+                return null
+            }
+            Log.d(TAG, "✓ 卡片已激活")
 
             // 2. 提取ATR (Answer To Reset)
+            Log.d(TAG, "========== 步骤2: 提取ATR ==========")
             val atr = extractATR(powerOnResponse)
             if (atr.isEmpty()) {
-                Log.e(TAG, "No ATR received")
+                Log.e(TAG, "✗ 未收到ATR数据")
                 return null
             }
 
-            Log.d(TAG, "ATR received: ${atr.joinToString("") { "%02X".format(it) }}")
+            val atrHex = atr.joinToString("") { "%02X".format(it) }
+            Log.d(TAG, "✓ ATR接收成功")
+            Log.d(TAG, "ATR数据: $atrHex")
+            Log.d(TAG, "ATR长度: ${atr.size} 字节")
 
             // 3. 识别卡片类型（根据ATR）
+            Log.d(TAG, "========== 步骤3: 识别卡片类型 ==========")
             val cardType = identifyCardType(atr)
             val isMifareClassic = cardType.contains("Mifare Classic", ignoreCase = true)
             
-            Log.d(TAG, "Card type identified: $cardType, isMifareClassic: $isMifareClassic")
+            Log.d(TAG, "✓ 卡片类型: $cardType")
+            Log.d(TAG, "是否Mifare Classic: $isMifareClassic")
             
             // 4. 根据卡片类型选择不同的UID获取方式
+            Log.d(TAG, "========== 步骤4: 读取UID ==========")
             var uid: ByteArray = byteArrayOf()
             
             if (isMifareClassic) {
                 // Mifare Classic 卡片：尝试多种方式读取UID
-                Log.d(TAG, "Attempting Mifare Classic UID read...")
+                Log.d(TAG, "使用Mifare Classic专用读取方式...")
                 
                 // 方式1: 标准Get UID命令
+                Log.d(TAG, "尝试方式1: 标准Get UID命令 (FFCA0000)...")
                 val getUidCommand = buildGetUidCommand()
                 val uidResponse1 = sendCommand(connection, outEndpoint, inEndpoint, getUidCommand)
                 
                 if (uidResponse1 != null && isSuccessResponse(uidResponse1)) {
                     uid = extractUid(uidResponse1)
-                    Log.d(TAG, "UID read via standard command: ${formatUid(uid)}")
+                    Log.d(TAG, "✓ 方式1成功")
+                    Log.d(TAG, "UID: ${formatUid(uid)} (${uid.size}字节)")
                 } else {
-                    Log.d(TAG, "Standard UID command failed, trying Mifare-specific command...")
+                    Log.w(TAG, "✗ 方式1失败")
+                    if (uidResponse1 == null) {
+                        Log.w(TAG, "  原因: 无响应")
+                    } else {
+                        Log.w(TAG, "  原因: 状态码 0x${uidResponse1[7].toString(16)}")
+                    }
                     
                     // 方式2: Mifare专用读取Block 0
+                    Log.d(TAG, "尝试方式2: Mifare Block 0读取...")
                     val mifareUidCommand = buildMifareGetUidCommand()
                     val uidResponse2 = sendCommand(connection, outEndpoint, inEndpoint, mifareUidCommand)
                     
                     if (uidResponse2 != null && isSuccessResponse(uidResponse2)) {
                         // Block 0 的前4或7字节是UID
                         val blockData = extractATR(uidResponse2)
+                        Log.d(TAG, "Block 0数据 (${blockData.size}字节): ${blockData.joinToString("") { "%02X".format(it) }}")
                         uid = if (blockData.size >= 7 && blockData[0] != 0x00.toByte()) {
                             blockData.copyOfRange(0, 7)  // 7字节UID
                         } else if (blockData.size >= 4) {
@@ -808,46 +885,78 @@ class ExternalCardReaderPlugin : FlutterPlugin, MethodCallHandler {
                         } else {
                             blockData
                         }
-                        Log.d(TAG, "UID read via Mifare Block 0: ${formatUid(uid)}")
+                        Log.d(TAG, "✓ 方式2成功")
+                        Log.d(TAG, "UID: ${formatUid(uid)} (${uid.size}字节)")
                     } else {
-                        Log.d(TAG, "Mifare Block 0 read failed, extracting from ATR...")
+                        Log.w(TAG, "✗ 方式2失败")
                         // 方式3: 从ATR中提取
+                        Log.d(TAG, "尝试方式3: 从ATR提取UID...")
                         uid = extractUidFromATR(atr)
+                        if (uid.isNotEmpty()) {
+                            Log.d(TAG, "✓ 方式3成功 (从历史字节)")
+                            Log.d(TAG, "UID: ${formatUid(uid)} (${uid.size}字节)")
+                        } else {
+                            Log.e(TAG, "✗ 所有方式均失败")
+                        }
                     }
                 }
             } else {
                 // 非Mifare Classic卡片：使用标准命令
-                Log.d(TAG, "Attempting standard UID read...")
+                Log.d(TAG, "使用标准读取方式...")
                 val getUidCommand = buildGetUidCommand()
                 val uidResponse = sendCommand(connection, outEndpoint, inEndpoint, getUidCommand)
                 
-                uid = if (uidResponse != null && isSuccessResponse(uidResponse)) {
-                    extractUid(uidResponse)
+                if (uidResponse != null && isSuccessResponse(uidResponse)) {
+                    uid = extractUid(uidResponse)
+                    Log.d(TAG, "✓ 标准命令成功")
+                    Log.d(TAG, "UID: ${formatUid(uid)} (${uid.size}字节)")
                 } else {
-                    // 从ATR中提取
-                    extractUidFromATR(atr)
+                    Log.w(TAG, "✗ 标准命令失败，尝试从ATR提取...")
+                    uid = extractUidFromATR(atr)
+                    if (uid.isNotEmpty()) {
+                        Log.d(TAG, "✓ ATR提取成功")
+                        Log.d(TAG, "UID: ${formatUid(uid)} (${uid.size}字节)")
+                    } else {
+                        Log.e(TAG, "✗ 无法获取UID")
+                    }
                 }
-                Log.d(TAG, "UID read: ${formatUid(uid)}")
             }
 
             // 5. 验证UID是否有效
-            if (uid.isEmpty() || uid.all { it == 0x00.toByte() }) {
-                Log.w(TAG, "UID is empty or all zeros, card may not be properly detected")
-                // 即使UID无效，仍返回其他信息
+            Log.d(TAG, "========== 步骤5: 验证UID ==========")
+            val isValidUid = uid.isNotEmpty() && !uid.all { it == 0x00.toByte() }
+            
+            if (!isValidUid) {
+                Log.w(TAG, "⚠ UID无效")
+                if (uid.isEmpty()) {
+                    Log.w(TAG, "  原因: UID为空")
+                } else {
+                    Log.w(TAG, "  原因: UID全为0 (${formatUid(uid)})")
+                }
+                Log.w(TAG, "  卡片可能未正确放置或不支持当前读取方式")
+            } else {
+                Log.d(TAG, "✓ UID验证通过")
             }
             
             // 6. 构建返回数据
+            Log.d(TAG, "========== 步骤6: 构建结果 ==========")
             val result = hashMapOf(
                 "uid" to formatUid(uid),
                 "type" to cardType,
                 "capacity" to getCardCapacity(cardType),
                 "timestamp" to java.time.Instant.now().toString(),
-                "isValid" to uid.isNotEmpty(),
+                "isValid" to isValidUid,
                 "atr" to atr.joinToString("") { "%02X".format(it) },
                 "rawUid" to uid.joinToString("") { "%02X".format(it) }
             )
             
-            Log.d(TAG, "Card read completed successfully: $result")
+            Log.d(TAG, "========== 读卡完成 ==========")
+            Log.d(TAG, "结果摘要:")
+            Log.d(TAG, "  UID: ${result["uid"]}")
+            Log.d(TAG, "  类型: ${result["type"]}")
+            Log.d(TAG, "  容量: ${result["capacity"]}")
+            Log.d(TAG, "  有效性: ${result["isValid"]}")
+            
             return result
             
         } catch (e: IOException) {

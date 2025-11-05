@@ -83,6 +83,7 @@ class ExternalCardReaderDevice {
 /// 外接读卡器状态枚举
 enum ExternalCardReaderStatus {
   notConnected,  // 未连接
+  connecting,    // 连接中（请求权限中）
   connected,     // 已连接（可用）
   reading,       // 读卡中
   error,         // 错误

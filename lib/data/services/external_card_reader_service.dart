@@ -38,6 +38,9 @@ class ExternalCardReaderService extends GetxService {
   // 调试日志
   final debugLogs = <String>[].obs;
 
+  // 调试日志面板是否展开
+  final debugLogExpanded = false.obs;
+
   // 自动读卡定时器
   Timer? _autoReadTimer;
 
@@ -80,6 +83,25 @@ class ExternalCardReaderService extends GetxService {
       case 'onUsbDeviceDetached':
         _addLog('USB设备已断开');
         await scanUsbReaders();
+        break;
+
+      case 'onPermissionGranted':
+        _addLog('✓ USB权限已授予');
+        // 权限授予后，重新扫描设备以更新连接状态
+        final deviceId = call.arguments as Map<dynamic, dynamic>?;
+        if (deviceId != null) {
+          _addLog('设备 ${deviceId["deviceId"]} 权限已授予，正在更新状态...');
+        }
+        // 延迟一下让系统完成权限授予流程
+        await Future.delayed(const Duration(milliseconds: 500));
+        // 重新扫描设备
+        await scanUsbReaders();
+        break;
+
+      case 'onPermissionDenied':
+        _addLog('✗ USB权限被拒绝');
+        readerStatus.value = ExternalCardReaderStatus.error;
+        lastError.value = 'USB权限被拒绝，请在系统设置中允许USB访问';
         break;
 
       case 'onCardDetected':
@@ -152,10 +174,20 @@ class ExternalCardReaderService extends GetxService {
 
         // 自动选择第一个设备
         if (readers.isNotEmpty) {
-          selectedReader.value = readers.first;
-          readerStatus.value = ExternalCardReaderStatus.connected;
-          _addLog('✓ 已选择设备: ${readers.first.displayName}');
-          _startAutoRead(); // 启动自动读卡
+          final firstReader = readers.first;
+          selectedReader.value = firstReader;
+          _addLog('✓ 已选择设备: ${firstReader.displayName}');
+          
+          // 检查是否有权限，没有则请求
+          if (!firstReader.isConnected) {
+            _addLog('设备未授权，正在请求USB权限...');
+            readerStatus.value = ExternalCardReaderStatus.connecting;
+            await requestPermission(firstReader.deviceId);
+          } else {
+            _addLog('✓ 设备已授权，准备启动自动读卡');
+            readerStatus.value = ExternalCardReaderStatus.connected;
+            _startAutoRead(); // 启动自动读卡
+          }
         } else {
           _stopAutoRead(); // 停止自动读卡
         }
@@ -169,6 +201,30 @@ class ExternalCardReaderService extends GetxService {
     } finally {
       isScanning.value = false;
       _addLog('========== 扫描完成 ==========');
+    }
+  }
+
+  /// 请求USB设备权限
+  Future<bool> requestPermission(String deviceId) async {
+    _addLog('========== 请求USB权限 ==========');
+    _addLog('设备ID: $deviceId');
+    
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'requestPermission',
+        {'deviceId': deviceId},
+      );
+      
+      if (result == true) {
+        _addLog('✓ 权限请求已发送，等待用户确认...');
+        return true;
+      } else {
+        _addLog('✗ 权限请求发送失败');
+        return false;
+      }
+    } catch (e) {
+      _addLog('✗ 请求权限异常: $e');
+      return false;
     }
   }
 
@@ -343,10 +399,16 @@ class ExternalCardReaderService extends GetxService {
 
       final device = selectedReader.value!;
 
-      // 调用原生方法读卡
+      // 调用原生方法读卡（增加超时控制）
       final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
         'readCard',
         {'deviceId': device.deviceId},
+      ).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          // 超时不记录日志，避免刷屏
+          return null;
+        },
       );
 
       if (result != null) {
@@ -357,15 +419,30 @@ class ExternalCardReaderService extends GetxService {
           final newUid = cardResult.cardData!['uid'];
           final currentUid = cardData.value?['uid'];
           
-          if (newUid != currentUid) {
+          if (newUid != currentUid && newUid != 'Unknown') {
             cardData.value = cardResult.cardData;
             testReadSuccess.value = true;
-            _addLog('✓ 检测到新卡片: $newUid');
+            lastError.value = null;
+            _addLog('✓ 检测到新卡片');
+            _addLog('  UID: $newUid');
+            _addLog('  类型: ${cardResult.cardData!["type"]}');
+          }
+        } else if (cardResult.errorCode == 'NO_CARD') {
+          // 无卡片时不记录日志，避免刷屏
+        } else {
+          // 其他错误才记录（但限制频率）
+          if (lastError.value != cardResult.message) {
+            lastError.value = cardResult.message;
+            _addLog('读卡错误: ${cardResult.message}');
           }
         }
       }
     } catch (e) {
-      // 静默失败，不打印日志（避免日志刷屏）
+      // 静默失败，只在错误变化时记录
+      if (lastError.value != e.toString()) {
+        lastError.value = e.toString();
+        _addLog('读卡异常: $e');
+      }
     } finally {
       isReading.value = false;
     }
