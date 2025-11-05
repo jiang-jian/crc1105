@@ -66,42 +66,80 @@ class SettingsPage extends GetView<SettingsController> {
           final (key, label, icon) = menuItems[index];
           return Obx(
             () => Container(
-              color: controller.selectedMenu.value == key
-                  ? AppTheme.primaryColor
-                  : Colors.transparent,
+              decoration: controller.selectedMenu.value == key
+                  ? BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF4A90E2).withOpacity(0.8),
+                          const Color(0xFF357ABD).withOpacity(0.9),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    )
+                  : null,
               child: InkWell(
                 onTap: () => controller.selectMenu(key),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 16.h,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 20.sp,
-                        color: controller.selectedMenu.value == key
-                            ? Colors.white
-                            : Colors.grey[300],
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: controller.selectedMenu.value == key
-                                ? Colors.white
-                                : Colors.grey[300],
-                            fontWeight: controller.selectedMenu.value == key
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
+                child: Row(
+                  children: [
+                    // 左侧渐变竖线
+                    Container(
+                      width: 4.w,
+                      height: 52.h,
+                      decoration: controller.selectedMenu.value == key
+                          ? BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF00D4FF),
+                                  Color(0xFF0096FF),
+                                  Color(0xFF7B2FFF),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(2.r),
+                                bottomRight: Radius.circular(2.r),
+                              ),
+                            )
+                          : null,
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4.w,
+                          vertical: 16.h,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              icon,
+                              size: 20.sp,
+                              color: controller.selectedMenu.value == key
+                                  ? Colors.white
+                                  : Colors.grey[300],
+                            ),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  color: controller.selectedMenu.value == key
+                                      ? Colors.white
+                                      : Colors.grey[300],
+                                  fontWeight: controller.selectedMenu.value == key
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
