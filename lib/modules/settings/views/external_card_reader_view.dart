@@ -25,9 +25,12 @@ class ExternalCardReaderView extends StatelessWidget {
         final isReading = service.isReading.value;
         final cardData = service.cardData.value;
         final hasError = service.lastError.value != null;
+        final selectedDevice = service.selectedReader.value;
         
         String cardReadStatus;
-        if (isReading) {
+        if (selectedDevice == null) {
+          cardReadStatus = 'disconnected';
+        } else if (isReading) {
           cardReadStatus = 'reading';
         } else if (cardData != null && cardData['isValid'] == true) {
           cardReadStatus = 'success';
@@ -37,15 +40,12 @@ class ExternalCardReaderView extends StatelessWidget {
           cardReadStatus = 'waiting';
         }
 
-        return _buildThreeColumnLayout(service, cardReadStatus);
+        return _buildThreeColumnLayout(service, cardReadStatus, selectedDevice);
       }),
     );
   }
 
-  Widget _buildThreeColumnLayout(ExternalCardReaderService service, String cardReadStatus) {
-    return Obx(() {
-      final selectedDevice = service.selectedReader.value;
-      
+  Widget _buildThreeColumnLayout(ExternalCardReaderService service, String cardReadStatus, ExternalCardReaderDevice? selectedDevice) {
       return Stack(
         children: [
           Row(
@@ -96,7 +96,6 @@ class ExternalCardReaderView extends StatelessWidget {
           _buildDebugLogPanel(service),
         ],
       );
-    });
   }
 
   Widget _buildDeviceBasicInfo(ExternalCardReaderService service, ExternalCardReaderDevice? device) {
@@ -387,6 +386,7 @@ class ExternalCardReaderView extends StatelessWidget {
       case 'success':
         return [const Color(0xFF52C41A), const Color(0xFF389E0D)];
       case 'failed':
+      case 'disconnected':
         return [const Color(0xFFE74C3C), const Color(0xFFC0392B)];
       case 'reading':
       case 'waiting':
@@ -402,6 +402,12 @@ class ExternalCardReaderView extends StatelessWidget {
     String? hint;
 
     switch (cardReadStatus) {
+      case 'disconnected':
+        text = '未连接外置读卡器';
+        color = const Color(0xFFE74C3C);
+        icon = Icons.usb_off;
+        hint = '💡 请连接USB读卡器并点击【扫描USB设备】';
+        break;
       case 'waiting':
       case 'reading':
         text = '请将 M1 卡片靠近外置读卡器...';
