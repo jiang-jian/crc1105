@@ -50,11 +50,11 @@ class ExternalCardReaderView extends StatelessWidget {
         children: [
           Row(
             children: [
-              // 左列：设备基础信息 (30%)
+              // 左列：设备基础信息 (33%)
               Expanded(
-                flex: 30,
+                flex: 33,
                 child: Container(
-                  padding: EdgeInsets.all(24.w),
+                  padding: EdgeInsets.symmetric(horizontal: 48.w, vertical: 40.h),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFAFAFA),
                     border: Border(
@@ -65,11 +65,11 @@ class ExternalCardReaderView extends StatelessWidget {
                 ),
               ),
               
-              // 中列：读卡器配置 (35%)
+              // 中列：读卡器配置 (34%)
               Expanded(
-                flex: 35,
+                flex: 34,
                 child: Container(
-                  padding: EdgeInsets.all(32.w),
+                  padding: EdgeInsets.symmetric(horizontal: 56.w, vertical: 40.h),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F5F5),
                     border: Border(
@@ -80,11 +80,11 @@ class ExternalCardReaderView extends StatelessWidget {
                 ),
               ),
               
-              // 右列：扫描按钮+卡片数据 (35%)
+              // 右列：扫描按钮+卡片数据 (33%)
               Expanded(
-                flex: 35,
+                flex: 33,
                 child: Container(
-                  padding: EdgeInsets.all(32.w),
+                  padding: EdgeInsets.symmetric(horizontal: 48.w, vertical: 40.h),
                   color: Colors.white,
                   child: _buildCardDataSection(service, cardReadStatus),
                 ),
@@ -107,18 +107,18 @@ class ExternalCardReaderView extends StatelessWidget {
         Text(
           '设备信息',
           style: TextStyle(
-            fontSize: 22.sp,
+            fontSize: 26.sp,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF333333),
           ),
         ),
         
-        SizedBox(height: 32.h),
+        SizedBox(height: 40.h),
         
         // 扫描按钮
         _buildScanButton(service),
         
-        SizedBox(height: 32.h),
+        SizedBox(height: 40.h),
         
         // 设备信息内容
         Expanded(
@@ -140,22 +140,22 @@ class ExternalCardReaderView extends StatelessWidget {
 
   Widget _buildScanButton(ExternalCardReaderService service) {
     return Obx(() => SizedBox(
-      height: 48.h,
+      height: 56.h,
       child: ElevatedButton.icon(
         onPressed: service.isScanning.value ? null : () => service.scanUsbReaders(),
         icon: service.isScanning.value
             ? SizedBox(
-                width: 18.w,
-                height: 18.h,
+                width: 20.w,
+                height: 20.h,
                 child: const CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Icon(Icons.refresh, size: 20.sp),
+            : Icon(Icons.refresh, size: 22.sp),
         label: Text(
           service.isScanning.value ? '扫描中...' : '扫描USB设备',
-          style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFE5B544),
@@ -248,15 +248,15 @@ class ExternalCardReaderView extends StatelessWidget {
             ),
           ),
           
-          SizedBox(height: 24.h),
+          SizedBox(height: 32.h),
           
           // 设备详细信息
           _buildInfoItem('厂商', device.manufacturer, Icons.business),
-          SizedBox(height: 16.h),
+          SizedBox(height: 20.h),
           _buildInfoItem('型号', device.model ?? 'Unknown', Icons.device_hub),
-          SizedBox(height: 16.h),
+          SizedBox(height: 20.h),
           _buildInfoItem('规格', device.specifications ?? 'Unknown', Icons.info_outline),
-          SizedBox(height: 16.h),
+          SizedBox(height: 20.h),
           _buildInfoItem('USB ID', device.usbIdentifier, Icons.usb),
         ],
       ),
@@ -265,7 +265,7 @@ class ExternalCardReaderView extends StatelessWidget {
 
   Widget _buildInfoItem(String label, String value, IconData icon) {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12.r),
@@ -276,23 +276,23 @@ class ExternalCardReaderView extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18.sp, color: const Color(0xFFE5B544)),
-              SizedBox(width: 8.w),
+              Icon(icon, size: 20.sp, color: const Color(0xFFE5B544)),
+              SizedBox(width: 10.w),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13.sp,
+                  fontSize: 15.sp,
                   color: const Color(0xFF999999),
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 10.h),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14.sp,
+              fontSize: 16.sp,
               color: const Color(0xFF333333),
               fontWeight: FontWeight.w600,
             ),
@@ -312,21 +312,21 @@ class ExternalCardReaderView extends StatelessWidget {
         Text(
           '读卡器配置',
           style: TextStyle(
-            fontSize: 22.sp,
+            fontSize: 26.sp,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF333333),
           ),
         ),
         
-        SizedBox(height: 48.h),
+        SizedBox(height: 60.h),
         
         _buildCardIcon(cardReadStatus),
         
-        SizedBox(height: 48.h),
+        SizedBox(height: 56.h),
         
         _buildStatusText(service, cardReadStatus),
         
-        SizedBox(height: 32.h),
+        SizedBox(height: 40.h),
         
         if (cardReadStatus == 'failed') _buildRetryButton(service),
       ],
@@ -341,36 +341,36 @@ class ExternalCardReaderView extends StatelessWidget {
         return Transform.scale(
           scale: 0.9 + (value * 0.1),
           child: Container(
-            width: 180.w,
-            height: 180.h,
+            width: 220.w,
+            height: 220.h,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: _getGradientColors(cardReadStatus),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(24.r),
+              borderRadius: BorderRadius.circular(28.r),
               boxShadow: [
                 BoxShadow(
                   color: _getGradientColors(cardReadStatus)[0].withValues(alpha: 0.3),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
+                  blurRadius: 35,
+                  offset: const Offset(0, 12),
                 ),
               ],
             ),
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(Icons.credit_card, size: 90.sp, color: Colors.white),
+                Icon(Icons.credit_card, size: 110.sp, color: Colors.white),
                 if (cardReadStatus == 'reading')
                   Positioned(
-                    bottom: 35.h,
+                    bottom: 40.h,
                     child: SizedBox(
-                      width: 35.w,
-                      height: 35.h,
+                      width: 40.w,
+                      height: 40.h,
                       child: CircularProgressIndicator(
                         color: Colors.white,
-                        strokeWidth: 3.w,
+                        strokeWidth: 3.5.w,
                       ),
                     ),
                   ),
@@ -437,28 +437,28 @@ class ExternalCardReaderView extends StatelessWidget {
 
     return Column(
       children: [
-        Icon(icon, size: 36.sp, color: color),
-        SizedBox(height: 14.h),
+        Icon(icon, size: 42.sp, color: color),
+        SizedBox(height: 18.h),
         Text(
           text,
-          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600, color: color),
+          style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w600, color: color),
           textAlign: TextAlign.center,
         ),
         if (hint != null) ...[
-          SizedBox(height: 12.h),
+          SizedBox(height: 16.h),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8.r),
+              borderRadius: BorderRadius.circular(10.r),
               border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
             ),
             child: Text(
               hint,
               style: TextStyle(
-                fontSize: 13.sp,
+                fontSize: 15.sp,
                 color: color,
-                height: 1.4,
+                height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
@@ -470,15 +470,15 @@ class ExternalCardReaderView extends StatelessWidget {
 
   Widget _buildRetryButton(ExternalCardReaderService service) {
     return SizedBox(
-      width: 180.w,
-      height: 48.h,
+      width: 200.w,
+      height: 52.h,
       child: ElevatedButton.icon(
         onPressed: () {
           service.clearCardData();
           service.lastError.value = null;
         },
-        icon: Icon(Icons.refresh, size: 18.sp),
-        label: Text('重新读卡', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
+        icon: Icon(Icons.refresh, size: 20.sp),
+        label: Text('重新读卡', style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.bold)),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFE5B544),
           foregroundColor: Colors.white,
@@ -499,13 +499,13 @@ class ExternalCardReaderView extends StatelessWidget {
           Text(
             '卡片数据',
             style: TextStyle(
-              fontSize: 22.sp,
+              fontSize: 26.sp,
               fontWeight: FontWeight.bold,
               color: const Color(0xFF333333),
             ),
           ),
           
-          SizedBox(height: 32.h),
+          SizedBox(height: 40.h),
           
           Expanded(
             child: cardData != null && cardReadStatus == 'success'
@@ -520,10 +520,10 @@ class ExternalCardReaderView extends StatelessWidget {
   Widget _buildCardPlaceholder(String cardReadStatus) {
     return Center(
       child: Container(
-        padding: EdgeInsets.all(32.w),
+        padding: EdgeInsets.all(40.w),
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9FA),
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
         ),
         child: Column(
@@ -531,13 +531,13 @@ class ExternalCardReaderView extends StatelessWidget {
           children: [
             Icon(
               cardReadStatus == 'reading' ? Icons.sync : Icons.credit_card_outlined,
-              size: 60.sp,
+              size: 80.sp,
               color: const Color(0xFFBDC3C7),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 20.h),
             Text(
               cardReadStatus == 'reading' ? '正在读取卡片...' : '等待读卡',
-              style: TextStyle(fontSize: 16.sp, color: const Color(0xFF999999), fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 18.sp, color: const Color(0xFF999999), fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -548,10 +548,10 @@ class ExternalCardReaderView extends StatelessWidget {
   Widget _buildCardDataDisplay(Map<String, dynamic> cardData, ExternalCardReaderService service) {
     return SingleChildScrollView(
       child: Container(
-        padding: EdgeInsets.all(24.w),
+        padding: EdgeInsets.all(28.w),
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9FA),
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: const Color(0xFF52C41A).withValues(alpha: 0.3), width: 2),
         ),
         child: Column(
@@ -560,16 +560,16 @@ class ExternalCardReaderView extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 4.w,
-                  height: 20.h,
+                  width: 5.w,
+                  height: 24.h,
                   decoration: BoxDecoration(color: const Color(0xFF52C41A), borderRadius: BorderRadius.circular(2.r)),
                 ),
-                SizedBox(width: 12.w),
-                Text('读取数据', style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: const Color(0xFF333333))),
+                SizedBox(width: 14.w),
+                Text('读取数据', style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold, color: const Color(0xFF333333))),
                 const Spacer(),
                 IconButton(
                   onPressed: () => service.clearCardData(),
-                  icon: Icon(Icons.clear, size: 18.sp),
+                  icon: Icon(Icons.clear, size: 20.sp),
                   tooltip: '清除数据',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -578,32 +578,33 @@ class ExternalCardReaderView extends StatelessWidget {
               ],
             ),
             
-            SizedBox(height: 20.h),
+            SizedBox(height: 24.h),
             
             _buildCardDataRow('卡片 UID', cardData['uid'] ?? '未知'),
-            SizedBox(height: 14.h),
+            SizedBox(height: 18.h),
             _buildCardDataRow('卡片类型', cardData['type'] ?? '未知'),
             if (cardData['capacity'] != null) ...[
-              SizedBox(height: 14.h),
+              SizedBox(height: 18.h),
               _buildCardDataRow('卡片容量', cardData['capacity'] ?? '未知'),
             ],
-            SizedBox(height: 14.h),
+            SizedBox(height: 18.h),
             _buildCardDataRow('读取时间', _formatTimestamp(cardData['timestamp'])),
             
             if (cardData['isValid'] == true) ...[
-              SizedBox(height: 20.h),
+              SizedBox(height: 24.h),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
                 decoration: BoxDecoration(
                   color: const Color(0xFF52C41A).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.r),
+                  borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle, size: 18.sp, color: const Color(0xFF52C41A)),
-                    SizedBox(width: 8.w),
-                    Text('卡片验证通过', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500, color: const Color(0xFF52C41A))),
+                    Icon(Icons.check_circle, size: 20.sp, color: const Color(0xFF52C41A)),
+                    SizedBox(width: 10.w),
+                    Text('卡片验证通过', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w500, color: const Color(0xFF52C41A))),
+                  ],
                   ],
                 ),
               ),
@@ -619,12 +620,12 @@ class ExternalCardReaderView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 90.w,
-          child: Text(label, style: TextStyle(fontSize: 13.sp, color: const Color(0xFF999999), fontWeight: FontWeight.w500)),
+          width: 100.w,
+          child: Text(label, style: TextStyle(fontSize: 15.sp, color: const Color(0xFF999999), fontWeight: FontWeight.w500)),
         ),
-        SizedBox(width: 12.w),
+        SizedBox(width: 16.w),
         Expanded(
-          child: Text(value, style: TextStyle(fontSize: 13.sp, color: const Color(0xFF333333), fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+          child: Text(value, style: TextStyle(fontSize: 15.sp, color: const Color(0xFF333333), fontWeight: FontWeight.w600, fontFamily: 'monospace')),
         ),
       ],
     );
