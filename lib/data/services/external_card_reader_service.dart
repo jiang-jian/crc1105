@@ -162,6 +162,8 @@ class ExternalCardReaderService extends GetxService {
         detectedReaders.clear();
         selectedReader.value = null;
         readerStatus.value = ExternalCardReaderStatus.notConnected;
+        cardData.value = null;  // 🔧 清除卡片数据
+        lastError.value = null;  // 🔧 清除错误信息
         _stopAutoRead(); // 停止自动读卡
       } else {
         // 解析设备列表
@@ -198,6 +200,8 @@ class ExternalCardReaderService extends GetxService {
       detectedReaders.clear();
       selectedReader.value = null;
       readerStatus.value = ExternalCardReaderStatus.error;
+      cardData.value = null;  // 🔧 清除卡片数据
+      lastError.value = '扫描失败: $e';  // 🔧 设置错误信息
     } finally {
       isScanning.value = false;
       _addLog('========== 扫描完成 ==========');

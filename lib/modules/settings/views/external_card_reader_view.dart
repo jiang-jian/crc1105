@@ -22,16 +22,17 @@ class ExternalCardReaderView extends StatelessWidget {
       height: double.infinity,
       color: Colors.white,
       child: Obx(() {
-        final isReading = service.isReading.value;
         final cardData = service.cardData.value;
         final hasError = service.lastError.value != null;
         final selectedDevice = service.selectedReader.value;
+        final isScanning = service.isScanning.value;  // 🔧 添加 isScanning 监听
         
+        // 🔧 修复闪烁: 移除 isReading 对状态的影响
+        // 原因: isReading 每 500ms 切换导致 UI 闪烁
+        // 解决: 只根据实际结果（cardData/error）更新状态
         String cardReadStatus;
         if (selectedDevice == null) {
           cardReadStatus = 'disconnected';
-        } else if (isReading) {
-          cardReadStatus = 'reading';
         } else if (cardData != null && cardData['isValid'] == true) {
           cardReadStatus = 'success';
         } else if (hasError) {
@@ -121,17 +122,11 @@ class ExternalCardReaderView extends StatelessWidget {
         
         // 设备信息内容
         Expanded(
-          child: Obx(() {
-            if (service.isScanning.value) {
-              return _buildScanningState();
-            }
-            
-            if (device == null) {
-              return _buildNoDeviceState();
-            }
-            
-            return _buildDeviceInfoList(device);
-          }),
+          child: service.isScanning.value
+              ? _buildScanningState()
+              : device == null
+                  ? _buildNoDeviceState()
+                  : _buildDeviceInfoList(device),
         ),
       ],
     );
