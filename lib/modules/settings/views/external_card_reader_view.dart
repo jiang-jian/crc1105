@@ -51,9 +51,9 @@ class ExternalCardReaderView extends StatelessWidget {
         children: [
           Row(
             children: [
-              // 左列：设备基础信息 (40% - 增加宽度)
+              // 左列：设备基础信息 (43% - 进一步增加宽度)
               Expanded(
-                flex: 40,
+                flex: 43,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 48.w, vertical: 40.h),
                   decoration: BoxDecoration(
@@ -81,9 +81,9 @@ class ExternalCardReaderView extends StatelessWidget {
                 ),
               ),
               
-              // 右列：扫描按钮+卡片数据 (28% - 减少宽度)
+              // 右列：扫描按钮+卡片数据 (25% - 进一步减少宽度)
               Expanded(
-                flex: 28,
+                flex: 25,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 48.w, vertical: 40.h),
                   color: Colors.white,
