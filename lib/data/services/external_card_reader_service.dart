@@ -94,8 +94,8 @@ class ExternalCardReaderService extends GetxService {
         }
         // 延迟一下让系统完成权限授予流程
         await Future.delayed(const Duration(milliseconds: 500));
-        // 重新扫描设备
-        await scanUsbReaders();
+        // 🔧 FIX: 重新扫描设备，强制更新 selectedReader 为新的已授权设备对象
+        await scanUsbReaders(forceUpdateSelected: true);
         break;
 
       case 'onPermissionDenied':
@@ -118,8 +118,12 @@ class ExternalCardReaderService extends GetxService {
   }
 
   /// 扫描USB读卡器设备
-  Future<void> scanUsbReaders() async {
+  /// [forceUpdateSelected] - 强制更新 selectedReader（用于权限授予后）
+  Future<void> scanUsbReaders({bool forceUpdateSelected = false}) async {
     _addLog('========== 开始扫描USB读卡器 ==========');
+    if (forceUpdateSelected) {
+      _addLog('🔧 强制更新模式：将重新选择已授权设备');
+    }
     isScanning.value = true;
     testReadSuccess.value = false; // 重置测试状态
     cardData.value = null; // 清除卡片数据
@@ -172,23 +176,92 @@ class ExternalCardReaderService extends GetxService {
             .toList();
 
         detectedReaders.value = readers;
-        _addLog('✓ 检测到 ${readers.length} 个读卡器');
+        _addLog('✓ 检测到 ${readers.length} 个USB设备');
+        
+        // 🔧 FIX: 打印所有设备的详细信息，帮助识别正确的读卡器
+        for (var i = 0; i < readers.length; i++) {
+          final reader = readers[i];
+          _addLog('  设备 ${i + 1}:');
+          _addLog('    名称: ${reader.deviceName}');
+          _addLog('    产品: ${reader.productName}');
+          _addLog('    厂商: ${reader.manufacturer}');
+          _addLog('    USB ID: ${reader.usbIdentifier}');
+          _addLog('    授权: ${reader.isConnected ? "是" : "否"}');
+          if (reader.usbPath != null) {
+            _addLog('    路径: ${reader.usbPath}');
+          }
+        }
 
-        // 自动选择第一个设备
+        // 🔧 FIX: 智能选择读卡器设备（过滤USB Hub）
+        ExternalCardReaderDevice? selectedDevice;
+        
         if (readers.isNotEmpty) {
-          final firstReader = readers.first;
-          selectedReader.value = firstReader;
-          _addLog('✓ 已选择设备: ${firstReader.displayName}');
+          // 优先选择名称包含读卡器关键词的设备
+          final cardReaderKeywords = ['reader', 'card', 'nfc', 'rfid', 'acr', 'acs'];
+          final hubKeywords = ['hub'];
           
-          // 检查是否有权限，没有则请求
-          if (!firstReader.isConnected) {
-            _addLog('设备未授权，正在请求USB权限...');
-            readerStatus.value = ExternalCardReaderStatus.connecting;
-            await requestPermission(firstReader.deviceId);
+          // 过滤并排序设备
+          final sortedReaders = List<ExternalCardReaderDevice>.from(readers);
+          sortedReaders.sort((a, b) {
+            final aName = '${a.productName} ${a.deviceName}'.toLowerCase();
+            final bName = '${b.productName} ${b.deviceName}'.toLowerCase();
+            
+            // 检查是否包含Hub关键词（降低优先级）
+            final aIsHub = hubKeywords.any((keyword) => aName.contains(keyword));
+            final bIsHub = hubKeywords.any((keyword) => bName.contains(keyword));
+            
+            if (aIsHub && !bIsHub) return 1;  // a是Hub，b不是 → b优先
+            if (!aIsHub && bIsHub) return -1; // a不是Hub，b是 → a优先
+            
+            // 检查是否包含读卡器关键词（提高优先级）
+            final aScore = cardReaderKeywords.where((keyword) => aName.contains(keyword)).length;
+            final bScore = cardReaderKeywords.where((keyword) => bName.contains(keyword)).length;
+            
+            return bScore.compareTo(aScore); // 分数高的优先
+          });
+          
+          selectedDevice = sortedReaders.first;
+          _addLog('✓ 智能选择设备: ${selectedDevice.displayName}');
+          
+          // 如果选中的是Hub，给出警告
+          final selectedName = '${selectedDevice.productName} ${selectedDevice.deviceName}'.toLowerCase();
+          if (hubKeywords.any((keyword) => selectedName.contains(keyword))) {
+            _addLog('⚠️ 警告: 选中的设备可能是USB Hub，不是读卡器');
+            _addLog('⚠️ 如果读卡失败，请检查是否接入了正确的读卡器设备');
+          }
+          
+          final firstReader = selectedDevice;
+          
+          // 🔧 FIX: 如果是强制更新模式（权限授予后），无条件更新 selectedReader
+          if (forceUpdateSelected) {
+            selectedReader.value = firstReader;
+            _addLog('✓ 强制更新选中设备: ${firstReader.displayName}');
+            _addLog('  设备授权状态: ${firstReader.isConnected ? "已授权" : "未授权"}');
+            
+            // 权限授予后的设备应该是已授权的，直接启动自动读卡
+            if (firstReader.isConnected) {
+              _addLog('✓ 设备已授权，启动自动读卡');
+              readerStatus.value = ExternalCardReaderStatus.connected;
+              _startAutoRead();
+            } else {
+              _addLog('⚠️ 警告: 设备仍未授权，继续等待');
+              readerStatus.value = ExternalCardReaderStatus.connecting;
+            }
           } else {
-            _addLog('✓ 设备已授权，准备启动自动读卡');
-            readerStatus.value = ExternalCardReaderStatus.connected;
-            _startAutoRead(); // 启动自动读卡
+            // 正常模式：首次扫描或手动扫描
+            selectedReader.value = firstReader;
+            _addLog('✓ 已选择设备: ${firstReader.displayName}');
+            
+            // 检查是否有权限，没有则请求
+            if (!firstReader.isConnected) {
+              _addLog('设备未授权，正在请求USB权限...');
+              readerStatus.value = ExternalCardReaderStatus.connecting;
+              await requestPermission(firstReader.deviceId);
+            } else {
+              _addLog('✓ 设备已授权，准备启动自动读卡');
+              readerStatus.value = ExternalCardReaderStatus.connected;
+              _startAutoRead(); // 启动自动读卡
+            }
           }
         } else {
           _stopAutoRead(); // 停止自动读卡
