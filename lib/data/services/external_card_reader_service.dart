@@ -192,43 +192,60 @@ class ExternalCardReaderService extends GetxService {
           }
         }
 
-        // 🔧 FIX: 智能选择读卡器设备（过滤USB Hub）
+        // 🔧 FIX: 智能过滤并选择读卡器设备（完全排除非读卡器设备）
         ExternalCardReaderDevice? selectedDevice;
         
         if (readers.isNotEmpty) {
-          // 优先选择名称包含读卡器关键词的设备
+          // 定义读卡器关键词和排除关键词
           final cardReaderKeywords = ['reader', 'card', 'nfc', 'rfid', 'acr', 'acs'];
-          final hubKeywords = ['hub'];
+          final excludeKeywords = ['hub', 'mouse', 'keyboard', 'camera', 'audio', 'bluetooth'];
           
-          // 过滤并排序设备
-          final sortedReaders = List<ExternalCardReaderDevice>.from(readers);
-          sortedReaders.sort((a, b) {
+          // 🔧 第一步：过滤掉非读卡器设备
+          final filteredReaders = readers.where((reader) {
+            final deviceName = '${reader.productName} ${reader.deviceName}'.toLowerCase();
+            
+            // 如果包含排除关键词，则过滤掉
+            final shouldExclude = excludeKeywords.any((keyword) => deviceName.contains(keyword));
+            if (shouldExclude) {
+              _addLog('  ⊗ 过滤非读卡器设备: ${reader.displayName}');
+              return false;
+            }
+            
+            // 如果包含读卡器关键词，则保留
+            final isCardReader = cardReaderKeywords.any((keyword) => deviceName.contains(keyword));
+            return isCardReader;
+          }).toList();
+          
+          // 🔧 如果过滤后没有真正的读卡器，清空设备列表
+          if (filteredReaders.isEmpty) {
+            _addLog('⚠️ 未检测到真正的读卡器设备（已过滤 ${readers.length} 个非读卡器设备）');
+            detectedReaders.clear();
+            selectedReader.value = null;
+            readerStatus.value = ExternalCardReaderStatus.notConnected;
+            cardData.value = null;
+            lastError.value = null;
+            _stopAutoRead();
+            isScanning.value = false;
+            _addLog('========== 扫描完成 ==========');
+            return;
+          }
+          
+          _addLog('✓ 过滤后剩余 ${filteredReaders.length} 个读卡器设备');
+          
+          // 🔧 第二步：对真正的读卡器按匹配度排序
+          filteredReaders.sort((a, b) {
             final aName = '${a.productName} ${a.deviceName}'.toLowerCase();
             final bName = '${b.productName} ${b.deviceName}'.toLowerCase();
             
-            // 检查是否包含Hub关键词（降低优先级）
-            final aIsHub = hubKeywords.any((keyword) => aName.contains(keyword));
-            final bIsHub = hubKeywords.any((keyword) => bName.contains(keyword));
-            
-            if (aIsHub && !bIsHub) return 1;  // a是Hub，b不是 → b优先
-            if (!aIsHub && bIsHub) return -1; // a不是Hub，b是 → a优先
-            
-            // 检查是否包含读卡器关键词（提高优先级）
+            // 计算匹配读卡器关键词的分数
             final aScore = cardReaderKeywords.where((keyword) => aName.contains(keyword)).length;
             final bScore = cardReaderKeywords.where((keyword) => bName.contains(keyword)).length;
             
             return bScore.compareTo(aScore); // 分数高的优先
           });
           
-          selectedDevice = sortedReaders.first;
+          selectedDevice = filteredReaders.first;
           _addLog('✓ 智能选择设备: ${selectedDevice.displayName}');
-          
-          // 如果选中的是Hub，给出警告
-          final selectedName = '${selectedDevice.productName} ${selectedDevice.deviceName}'.toLowerCase();
-          if (hubKeywords.any((keyword) => selectedName.contains(keyword))) {
-            _addLog('⚠️ 警告: 选中的设备可能是USB Hub，不是读卡器');
-            _addLog('⚠️ 如果读卡失败，请检查是否接入了正确的读卡器设备');
-          }
           
           final firstReader = selectedDevice;
           
