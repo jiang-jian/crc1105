@@ -51,9 +51,9 @@ class ExternalCardReaderView extends StatelessWidget {
         children: [
           Row(
             children: [
-              // 左列：设备基础信息 (33%)
+              // 左列：设备基础信息 (40% - 增加宽度)
               Expanded(
-                flex: 33,
+                flex: 40,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 48.w, vertical: 40.h),
                   decoration: BoxDecoration(
@@ -66,9 +66,9 @@ class ExternalCardReaderView extends StatelessWidget {
                 ),
               ),
               
-              // 中列：读卡器配置 (34%)
+              // 中列：读卡器配置 (32%)
               Expanded(
-                flex: 34,
+                flex: 32,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 56.w, vertical: 40.h),
                   decoration: BoxDecoration(
@@ -81,9 +81,9 @@ class ExternalCardReaderView extends StatelessWidget {
                 ),
               ),
               
-              // 右列：扫描按钮+卡片数据 (33%)
+              // 右列：扫描按钮+卡片数据 (28% - 减少宽度)
               Expanded(
-                flex: 33,
+                flex: 28,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 48.w, vertical: 40.h),
                   color: Colors.white,
@@ -300,7 +300,7 @@ class ExternalCardReaderView extends StatelessWidget {
 
   Widget _buildCardReaderConfig(ExternalCardReaderService service, String cardReadStatus) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
